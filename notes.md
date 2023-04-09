@@ -12,3 +12,4 @@
 To do:
 - convert news articles to embeddings as well
 - data augmentation
+- sentiment analysis checkpoint
