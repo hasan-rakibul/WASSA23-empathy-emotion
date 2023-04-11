@@ -10,6 +10,15 @@
     - For the EMP subtask, the first column the prediction values for empathy, and the second column the prediction values for distress
 
 To do:
-- convert news articles to embeddings as well
-- data augmentation
+- data augmentation through Google API
 - sentiment analysis checkpoint
+- incorporate dev set to test and make full training on the training set
+
+# Results
+- learning rate of 2e-5 decrease performance than default (5e-5)
+- essay from empathy better than incorporating article texts
+    - essay-article better than article-essay
+- BERT-base-uncased (0.62) whereas DisTilBert (0.64)
+
+
+- cardiffnlp/twitter-roberta-base-sentiment-latest has longer token size but couldn't use
