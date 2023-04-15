@@ -22,3 +22,13 @@ To do:
 
 
 - cardiffnlp/twitter-roberta-base-sentiment-latest has longer token size but couldn't use
+
+
+prompt: generate set of text desccription of demographic information
+prompt learning
+
+hyperparameter tuning:
+learning rate
+larger validation set
+
+combine train and dev set and do cross-validation
