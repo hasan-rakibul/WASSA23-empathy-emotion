@@ -29,6 +29,7 @@ prompt learning
 
 hyperparameter tuning:
 learning rate
-larger validation set
+larger batch size
 
-combine train and dev set and do cross-validation
+combine train and dev set and do cross-validation -- done
+Question: among k-folds, which fold to consider for predicting on test data?
