@@ -1,3 +1,5 @@
 .vscode
 cc.en.*
 __pycache__/
+.ipynb_checkpoints/
+no-git/

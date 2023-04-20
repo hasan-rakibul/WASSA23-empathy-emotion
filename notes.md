@@ -24,12 +24,16 @@ To do:
 - cardiffnlp/twitter-roberta-base-sentiment-latest has longer token size but couldn't use
 
 
-prompt: generate set of text desccription of demographic information
-prompt learning
+Use prompt: generate set of text desccription of demographic information
+
 
 hyperparameter tuning:
 learning rate
-larger batch size
+batch size
+dropout if available 
+
 
 combine train and dev set and do cross-validation -- done
-Question: among k-folds, which fold to consider for predicting on test data?
+-- team name: Curtin OCAI
+
+CV to find best hyperparameter --> train-dev merge --> train the model --> predict on test set
