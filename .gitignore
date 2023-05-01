@@ -5,3 +5,9 @@ __pycache__/
 avg.ipynb
 notes.md
 prediction/
+.~*
+processed_data/backup/
+*2.ipynb
+trial_*
+hyperparam-tuning*
+
