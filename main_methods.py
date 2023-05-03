@@ -7,6 +7,8 @@ from accelerate import Accelerator
 from accelerate import notebook_launcher
 import os
 
+from evaluation import pearsonr, calculate_pearson
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false" # due to huggingface warning
 
 NUM_EPOCH = 35
@@ -75,11 +77,14 @@ def train_test(model, task, LEARNING_RATE, BATCH_SIZE):
         trainloader, model, opt    
     )
     
-    for epoch in range(0, NUM_EPOCH):
-
-        # Print epoch
-        accelerator.print(f'Starting epoch {epoch+1}')
-        
+    # evaluation data loader
+    testset = load_tokenised_data(filename=os.path.join("./processed_data", test_filename), task=task, tokenise_fn=tokenise, train_test="test")
+    testloader = torch.utils.data.DataLoader(
+        testset, shuffle=False, batch_size=BATCH_SIZE, collate_fn=data_collator
+    )
+    
+    model.train()
+    for epoch in range(0, NUM_EPOCH):        
         epoch_loss = 0
         num_batches = 0
 
@@ -102,25 +107,18 @@ def train_test(model, task, LEARNING_RATE, BATCH_SIZE):
 
         # Process is complete.
         avg_epoch_loss = epoch_loss / num_batches
-        accelerator.print(f"Epoch {epoch}: average loss = {avg_epoch_loss}")
-        
-    
-    # evaluation on test set
-    testset = load_tokenised_data(filename=os.path.join("./processed_data", test_filename), task=task, tokenise_fn=tokenise, train_test="test")
-    testloader = torch.utils.data.DataLoader(
-        testset, shuffle=False, batch_size=BATCH_SIZE, collate_fn=data_collator
-    )
+        accelerator.print(f"Epoch {epoch+1}: average loss = {avg_epoch_loss}")    
             
-    model.eval()
+        # Starting evaluation
+        model.eval()
+        y_pred = []
 
-    y_pred = []
+        for batch in testloader:
+            with torch.no_grad():
+                outputs = model(**batch)
 
-    for batch in testloader:
-        with torch.no_grad():
-            outputs = model(**batch)
-
-        batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
-        y_pred.extend(batch_pred)
+            batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
+            y_pred.extend(batch_pred)
   
     y_pred_df = pd.DataFrame({task: y_pred})
     filename = "./prediction/predictions_" + task + ".tsv"
@@ -135,3 +133,88 @@ def final_prediction(task, lr, batch, seed):
     model = trf.AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=1)
 
     notebook_launcher(train_test, (model,task,lr,batch), num_processes=torch.cuda.device_count())
+    
+
+def train_test_wo_acc(task, LEARNING_RATE, BATCH_SIZE, seed):
+    """
+    train-test pipeline without huggingface accelerator
+    """
+    print(f"{task} prediction")  #task: "empathy" or "distress" or ...
+    
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed) # just being extra cautious
+    np.random.seed(seed)
+    
+    model = trf.AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=1)
+    
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
+    
+    opt = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+  
+    trainset = load_tokenised_data(filename=os.path.join("./processed_data", train_filename), task=task, tokenise_fn=tokenise, train_test="train")
+       
+    trainloader = torch.utils.data.DataLoader(
+        trainset, shuffle=True, batch_size=BATCH_SIZE, collate_fn=data_collator
+    )
+    
+    training_steps = NUM_EPOCH * len(trainloader)
+    lr_scheduler = trf.get_scheduler(
+        "linear",
+        optimizer=opt,
+        num_warmup_steps=0,
+        num_training_steps=training_steps
+    )
+    
+    # evaluation data loader
+    # testset = load_tokenised_data(filename=os.path.join("./processed_data", test_filename), task=task, tokenise_fn=tokenise, train_test="test")
+    testset = load_tokenised_data(filename=os.path.join("./processed_data", test_filename), task=task, tokenise_fn=tokenise, train_test="train")
+    testloader = torch.utils.data.DataLoader(
+        testset, shuffle=False, batch_size=BATCH_SIZE, collate_fn=data_collator
+    )
+    
+    model.train()
+    for epoch in range(0, NUM_EPOCH):        
+        epoch_loss = 0
+        num_batches = 0
+
+        # Iterate over the DataLoader for training data
+        for batch in trainloader:
+            # Perform forward pass
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(**batch)
+            loss = outputs.loss
+
+            loss.backward()
+            opt.step()
+            lr_scheduler.step()
+            
+            opt.zero_grad()
+            
+            epoch_loss += loss.item()
+            num_batches += 1
+
+        # Process is complete.
+        avg_epoch_loss = epoch_loss / num_batches
+        print(f"Epoch {epoch+1}: average loss = {avg_epoch_loss}")    
+            
+        # Starting evaluation
+        model.eval()
+        y_pred = []
+        y_true=[]
+
+        for batch in testloader:
+            with torch.no_grad():
+                batch = {k: v.to(device) for k, v in batch.items()}
+                outputs = model(**batch)
+
+            batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
+            y_pred.extend(batch_pred)
+            y_true.extend(batch['labels'].tolist())
+            
+        pearson_r = pearsonr(y_true, y_pred)
+        print(pearson_r)
+  
+    y_pred_df = pd.DataFrame({task: y_pred})
+    filename = "./prediction/predictions_" + task + ".tsv"
+    y_pred_df.to_csv(filename, sep='\t', header=False, index=False)
