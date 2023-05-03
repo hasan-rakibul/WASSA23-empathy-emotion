@@ -1,0 +1,137 @@
+import pandas as pd
+import numpy as np
+import transformers as trf
+from datasets import Dataset
+import torch
+from accelerate import Accelerator
+from accelerate import notebook_launcher
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false" # due to huggingface warning
+
+NUM_EPOCH = 35
+
+train_filename = "train_train_paraphrased.csv"
+test_filename = "dev_summarised.csv"
+
+#Chosen features
+feature_1 = 'demographic_essay'
+feature_2 = 'article'
+
+checkpoint = "bert-base-uncased"
+
+tokeniser = trf.AutoTokenizer.from_pretrained(checkpoint)
+
+# data collator due to variable max token length per batch size
+data_collator = trf.DataCollatorWithPadding(tokenizer = tokeniser)
+
+#padding="longest" can be deferred to do dynamic padding
+def tokenise(sentence):
+    return tokeniser(sentence[feature_1], sentence[feature_2], truncation=True)
+    # return tokeniser(sentence[feature_1], truncation=True)
+
+def load_tokenised_data(filename, task, tokenise_fn, train_test):
+   
+    input_data = pd.read_csv(filename, header=0, index_col=0)
+    
+    if train_test == "train":
+        chosen_data = input_data[[feature_1, feature_2, task]]
+    elif train_test == "test":
+        chosen_data = input_data[[feature_1, feature_2]]  #test data shouldn't have output label
+
+    hugging_dataset = Dataset.from_pandas(chosen_data, preserve_index=False)
+
+    tokenised_hugging_dataset = hugging_dataset.map(tokenise_fn, batched=True, remove_columns = [feature_1, feature_2])
+    
+    if train_test == "train":
+        tokenised_hugging_dataset = tokenised_hugging_dataset.rename_column(task, "labels") # as huggingface requires
+    
+    tokenised_hugging_dataset = tokenised_hugging_dataset.with_format("torch")
+
+    return tokenised_hugging_dataset
+
+def train_test(model, task, LEARNING_RATE, BATCH_SIZE):
+    accelerator = Accelerator()
+    
+    accelerator.print(f"{task} prediction")  #task: "empathy" or "distress" or ...
+    
+    opt = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+  
+    trainset = load_tokenised_data(filename=os.path.join("./processed_data", train_filename), task=task, tokenise_fn=tokenise, train_test="train")
+       
+    trainloader = torch.utils.data.DataLoader(
+        trainset, shuffle=True, batch_size=BATCH_SIZE, collate_fn=data_collator
+    )
+    
+    training_steps = NUM_EPOCH * len(trainloader)
+    lr_scheduler = trf.get_scheduler(
+        "linear",
+        optimizer=opt,
+        num_warmup_steps=0,
+        num_training_steps=training_steps
+    )
+
+    trainloader, model, opt = accelerator.prepare(
+        trainloader, model, opt    
+    )
+    
+    for epoch in range(0, NUM_EPOCH):
+
+        # Print epoch
+        accelerator.print(f'Starting epoch {epoch+1}')
+        
+        epoch_loss = 0
+        num_batches = 0
+
+        # Iterate over the DataLoader for training data
+        for batch in trainloader:
+            # Perform forward pass
+            outputs = model(**batch)
+            
+            loss = outputs.loss
+
+            accelerator.backward(loss)
+        
+            opt.step()
+            lr_scheduler.step()
+            
+            opt.zero_grad()
+            
+            epoch_loss += loss.item()
+            num_batches += 1
+
+        # Process is complete.
+        avg_epoch_loss = epoch_loss / num_batches
+        accelerator.print(f"Epoch {epoch}: average loss = {avg_epoch_loss}")
+        
+    
+    # evaluation on test set
+    testset = load_tokenised_data(filename=os.path.join("./processed_data", test_filename), task=task, tokenise_fn=tokenise, train_test="test")
+    testloader = torch.utils.data.DataLoader(
+        testset, shuffle=False, batch_size=BATCH_SIZE, collate_fn=data_collator
+    )
+            
+    model.eval()
+
+    y_pred = []
+
+    for batch in testloader:
+        with torch.no_grad():
+            outputs = model(**batch)
+
+        batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
+        y_pred.extend(batch_pred)
+  
+    y_pred_df = pd.DataFrame({task: y_pred})
+    filename = "./prediction/predictions_" + task + ".tsv"
+    y_pred_df.to_csv(filename, sep='\t', header=False, index=False)
+
+def final_prediction(task, lr, batch, seed):
+
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    
+    model = trf.AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=1)
+
+    notebook_launcher(train_test, (model,task,lr,batch), num_processes=torch.cuda.device_count())
