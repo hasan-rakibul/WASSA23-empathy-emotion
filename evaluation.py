@@ -9,7 +9,7 @@ import sys
 import os
 from math import sqrt
 
-to_round = 4
+to_round = 3
 
 def eprint(*args, **kwargs):
 	print(*args, file=sys.stderr, **kwargs)

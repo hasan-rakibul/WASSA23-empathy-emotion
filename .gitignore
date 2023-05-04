@@ -11,4 +11,4 @@ processed_data/backup/
 trial_*
 hyperparam-tuning*
 prediction/
-
+*.db

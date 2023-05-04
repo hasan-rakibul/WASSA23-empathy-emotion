@@ -6,7 +6,7 @@ import optuna
 import plotly
 from functools import partial
 
-from evaluation import pearsonr, calculate_pearson
+from evaluation import pearsonr
 from main_methods import tokenise, load_tokenised_data
 
 NUM_EPOCH = 35
@@ -15,7 +15,7 @@ NUM_EPOCH = 35
 
 # validation by dev set only
 train_filename = "train_train_paraphrased.csv"
-dev_filename = "dev_summarised.csv"
+test_filename = "dev_summarised.csv"
 
 # Chosen features
 feature_1 = 'demographic_essay'
@@ -50,17 +50,17 @@ def objective(trial, task):
     ## Split train-test from thw whole train-dev dataset
     # train_dev = load_tokenised_data(filename=os.path.join("./processed_data", train_filename), tokenise_fn=tokenise, train_test="train")
     # train_portion = int(len(train_dev) * 0.8)
-    # validation_portion = len(train_dev) - train_portion
-    # train_subset, val_subset = torch.utils.data.random_split(train_dev, [train_portion, validation_portion])
+    # test_portion = len(train_dev) - train_portion
+    # trainset, testset = torch.utils.data.random_split(train_dev, [train_portion, test_portion])
     
     # Training by train set only
-    train_subset = load_tokenised_data(filename=os.path.join("./processed_data", train_filename), task=task, tokenise_fn=tokenise, train_test="train")
+    trainset = load_tokenised_data(filename=os.path.join("./processed_data", train_filename), task=task, tokenise_fn=tokenise, train_test="train")
     
-    train_dataloader = torch.utils.data.DataLoader(
-        train_subset, shuffle=True, batch_size=BATCH_SIZE, collate_fn=data_collator
-    ) 
+    trainloader = torch.utils.data.DataLoader(
+        trainset, shuffle=True, batch_size=BATCH_SIZE, collate_fn=data_collator
+    )
     
-    training_steps = NUM_EPOCH * len(train_dataloader)
+    training_steps = NUM_EPOCH * len(trainloader)
     lr_scheduler = trf.get_scheduler(
         "linear",
         optimizer=opt,
@@ -69,14 +69,16 @@ def objective(trial, task):
     )
     
     # Evaluation data loader
-    val_subset = load_tokenised_data(filename=os.path.join("./processed_data", dev_filename), task=task, tokenise_fn=tokenise, train_test="train") #treain_test="train" ensures output labesl are also passed
-    validation_dataloader = torch.utils.data.DataLoader(
-        val_subset, shuffle=False, batch_size=BATCH_SIZE, collate_fn=data_collator
+    testset = load_tokenised_data(filename=os.path.join("./processed_data", test_filename), task=task, tokenise_fn=tokenise, train_test="train")
+    testloader = torch.utils.data.DataLoader(
+        testset, shuffle=False, batch_size=BATCH_SIZE, collate_fn=data_collator
     )
     
     model.train()
-    for epoch in range(NUM_EPOCH):
-        for batch in train_dataloader:
+    for epoch in range(0, NUM_EPOCH):
+        # Iterate over the DataLoader for training data
+        for batch in trainloader:
+            # Perform forward pass
             batch = {k: v.to(device) for k, v in batch.items()}
             outputs = model(**batch)
             loss = outputs.loss
@@ -88,17 +90,17 @@ def objective(trial, task):
 
         # Evaluation   
         model.eval()
-        y_true =[]
         y_pred = []
+        y_true =[]
 
-        for batch in validation_dataloader:
+        for batch in testloader:
             with torch.no_grad():
                 batch = {k: v.to(device) for k, v in batch.items()}
                 outputs = model(**batch)
 
-            y_true.extend(batch['labels'].tolist())
             batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
             y_pred.extend(batch_pred)
+            y_true.extend(batch['labels'].tolist())
         
         pearson_r = pearsonr(y_true, y_pred)
             
@@ -114,9 +116,12 @@ def optuna_tuner(task):
     Run optuna study trial and generate plots
     """
     study = optuna.create_study(
-        sampler=optuna.samplers.TPESampler(seed=28),
-        pruner=optuna.pruners.MedianPruner(),
-        direction="maximize"
+        study_name = task,
+        storage = "sqlite:///{}.db".format(task),
+        sampler = optuna.samplers.TPESampler(seed=28),
+        pruner = optuna.pruners.MedianPruner(),
+        direction = "maximize",
+        load_if_exists = True
     )
     
     objective_param = partial(objective, task=task) #sending parameters to the objective function

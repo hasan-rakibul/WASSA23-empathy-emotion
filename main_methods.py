@@ -7,7 +7,7 @@ from accelerate import Accelerator
 from accelerate import notebook_launcher
 import os
 
-from evaluation import pearsonr, calculate_pearson
+from evaluation import pearsonr
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false" # due to huggingface warning
 
@@ -109,16 +109,16 @@ def train_test(model, task, LEARNING_RATE, BATCH_SIZE):
         avg_epoch_loss = epoch_loss / num_batches
         accelerator.print(f"Epoch {epoch+1}: average loss = {avg_epoch_loss}")    
             
-        # Starting evaluation
-        model.eval()
-        y_pred = []
+    # Starting evaluation
+    model.eval()
+    y_pred = []
 
-        for batch in testloader:
-            with torch.no_grad():
-                outputs = model(**batch)
+    for batch in testloader:
+        with torch.no_grad():
+            outputs = model(**batch)
 
-            batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
-            y_pred.extend(batch_pred)
+        batch_pred = [item for sublist in outputs.logits.tolist() for item in sublist]  #convert 2D list to 1D
+        y_pred.extend(batch_pred)
   
     y_pred_df = pd.DataFrame({task: y_pred})
     filename = "./prediction/predictions_" + task + ".tsv"
@@ -187,8 +187,7 @@ def train_test_wo_acc(task, LEARNING_RATE, BATCH_SIZE, seed):
 
             loss.backward()
             opt.step()
-            lr_scheduler.step()
-            
+            lr_scheduler.step()         
             opt.zero_grad()
             
             epoch_loss += loss.item()
