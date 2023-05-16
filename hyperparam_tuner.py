@@ -15,7 +15,7 @@ NUM_EPOCH = 35
 
 # validation by dev set only
 train_filename = "train_train_paraphrased.csv"
-test_filename = "dev_summarised.csv"
+test_filename = "preprocessed_complete_dev.csv"
 
 # Chosen features
 feature_1 = 'demographic_essay'
