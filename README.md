@@ -17,7 +17,7 @@ This repository contains the implementation of our paper entitled "Demographic-A
 		- `dataset/dev/`
 		- `dataset/test/`
 	- `processed_data/`
-	- `predictions/`
+	- `prediction/`
 	- `tmp/`
 - Download the dataset from [the official WASSA 2023 competition site at CodaLab](https://codalab.lisn.upsaclay.fr/competitions/11167) (optional if you use `processed_data`)
 	- Keep training datasets and `article_adobe_AMT.csv` in `dataset/`folder
