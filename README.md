@@ -12,22 +12,22 @@ This repository contains the implementation of our paper entitled "Demographic-A
 - `evaluation.py`: The evaluation file provided by WASSA 2023. It consists of methods to evaluate the performance, such as Pearson correlation coefficient.
  
 # How to run
-- Create directories if not already exist
+- Create directories if not already exist (`dataset/` is optional if you use `processed_data`)
 	- `dataset/`
 		- `dataset/dev/`
 		- `dataset/test/`
 	- `processed_data/`
 	- `predictions/`
 	- `tmp/`
-- Download the dataset from [the official WASSA 2023 competition site at CodaLab](https://codalab.lisn.upsaclay.fr/competitions/11167)
+- Download the dataset from [the official WASSA 2023 competition site at CodaLab](https://codalab.lisn.upsaclay.fr/competitions/11167) (optional if you use `processed_data`)
 	- Keep training datasets and `article_adobe_AMT.csv` in `dataset/`folder
 	- Keep dev sets at `dataset/dev/` folder
 	- Keep test sets at `dataset/test/` folder
 - Essay-level tasks
-	- `combine_data.ipynb`
-	- `preprocessing.ipynb`
+	- `combine_data.ipynb` (optional if you use `processed_data`)
+	- `preprocessing.ipynb` (optional if you use `processed_data`)
 	- `main_<task>.ipynb`
 - Conversation-level tasks
-	- `preprocessing_CONV.ipynb`
+	- `preprocessing_CONV.ipynb` (optional if you use `processed_data`)
 	- `main_CONV.ipynb`
 

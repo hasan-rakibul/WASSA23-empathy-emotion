@@ -3,7 +3,6 @@ cc.en.*
 __pycache__/
 .ipynb_checkpoints/
 notes.md
-prediction/
 .~*
 trial_*
 CONV_trial_*
