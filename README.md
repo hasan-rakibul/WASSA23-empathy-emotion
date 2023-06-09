@@ -1,7 +1,12 @@
-# WASSA-2023
-This repository contains the implementation of our paper entitled "Demographic-Aware Empathy and Personality Traits Prediction Using Multiple Transformers".
+This repository contains the implementation of our paper entitled "**Curtin OCAI at WASSA 2023 Empathy, Emotion and Personality Shared Task: Demographic-Aware Prediction Using Multiple Transformers**".
 
-# Useful file descriptions
+## Abstract
+The WASSA 2023 shared task on predicting empathy, emotion and other personality traits consists of essays, conversations and articles in textual form and participants' demographic information in numerical form. To address the tasks, our contributions include (1) converting numerical information into meaningful text information using appropriate templates, (2) summarising lengthy articles, and (3) augmenting training data by paraphrasing. To achieve these contributions, we leveraged two separate T5-based pre-trained transformers. We then fine-tuned pre-trained BERT, DistilBERT and ALBERT for predicting empathy and personality traits. We used the Optuna hyperparameter optimisation framework to fine-tune learning rates, batch sizes and weight initialisation. Our proposed system achieved its highest performance – a Pearson correlation coefficient of 0.750 – on the conversation-level empathy prediction task.
+
+## Overall architecture of the system
+![Overall architecture](Overall-architecture.png)
+
+## Useful file descriptions
 - `combine_data.ipynb`: For essay-level tasks, combine (1) dev set with corresponding labels and (2) train set and dev set
 - `preprocessing.ipynb`: For essay-level-tasks, convert initial pre-processing, such as removing missing values and converting numerical demographic and personal information to textual data. In addition, summarising and paraphrasing texts.
 - `preprocessing_CONV.ipynb`: Data combine and preprocessing for CONV task
@@ -11,7 +16,7 @@ This repository contains the implementation of our paper entitled "Demographic-A
 - `requirements.txt`: Major software packagase with corresponding versions
 - `evaluation.py`: The evaluation file provided by WASSA 2023. It consists of methods to evaluate the performance, such as Pearson correlation coefficient.
  
-# How to run
+## How to run
 - Create directories if not already exist (`dataset/` is optional if you use `processed_data`)
 	- `dataset/`
 		- `dataset/dev/`
@@ -30,4 +35,3 @@ This repository contains the implementation of our paper entitled "Demographic-A
 - Conversation-level tasks
 	- `preprocessing_CONV.ipynb` (optional if you use `processed_data`)
 	- `main_CONV.ipynb`
-
